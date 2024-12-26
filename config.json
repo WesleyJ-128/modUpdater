@@ -1,0 +1,25 @@
+[
+    {
+        "enabled": "auto",
+        "version": "latest",
+        "type": "client",
+        "directory": "C:\\Users\\johnsw9\\AppData\\Roaming\\.minecraft",
+        "name": "",
+        "install_fabric": true,
+        "fabric_installer_name": "fabricInstaller.jar",
+        "mods_folder": "mods2",
+        "mod_urls": {
+            "carpet": "https://github.com/gnembon/fabric-carpet",
+            "carpet-extra": "https://github.com/gnembon/carpet-extra",
+            "fabric_api": "https://modrinth.com/mod/fabric-api",
+            "item_scroller": "https://modrinth.com/mod/item-scroller",
+            "litematica": "https://modrinth.com/mod/litematica",
+            "miniHUD": "https://modrinth.com/mod/minihud",
+            "tweakeroo": "https://modrinth.com/mod/tweakeroo",
+            "malilib": "https://modrinth.com/mod/malilib",
+            "worldedit": "https://modrinth.com/plugin/worldedit",
+            "sodium": "https://modrinth.com/mod/sodium",
+            "lithium": "https://modrinth.com/mod/lithium"
+        }
+    }
+]
