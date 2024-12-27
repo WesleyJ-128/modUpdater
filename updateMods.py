@@ -213,7 +213,7 @@ if (warnings_count + errors_count):
     errors = f"{errors_count} error" + "s" * (errors_count == 0 or errors_count > 1)
     print(f"INFO: Script completed with {errors} and {warnings}.")
 else:
-    print("Script completed with no errors or warnings.")
+    print("INFO: Script completed with no errors or warnings.")
 
 
 
