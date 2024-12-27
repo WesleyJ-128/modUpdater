@@ -1,0 +1,27 @@
+[
+    {
+        "enabled": "auto",
+        "version": "latest",
+        "type": "client",
+        "directory": "C:\\Users\\{username}\\AppData\\Roaming\\.minecraft",
+        "name": "ExampleClient",
+        "loader": "fabric",
+        "install_loader": true,
+        "fabric_installer_name": "fabricInstaller.jar",
+        "mods_folder": "mods",
+        "mods": [
+            {"displayName": "Carpet", "id": "carpet", "site": "github", "author": "gnembon"},
+            {"displayName": "Carpet-Extra", "id": "carpet-extra", "site": "github", "author": "gnembon"},
+            {"displayName": "FabricAPI", "id": "fabric-api", "site": "modrinth"},
+            {"displayName": "Itemscroller", "id": "item-scroller", "site": "modrinth"},
+            {"displayName": "Litematica", "id": "litematica", "site": "modrinth"},
+            {"displayName": "MiniHUD", "id": "minihud", "site": "modrinth"},
+            {"displayName": "Tweakeroo", "id": "tweakeroo", "site": "modrinth"},
+            {"displayName": "MaLiLib", "id": "malilib", "site": "modrinth"},
+            {"displayName": "WorldEdit", "id": "worldedit", "site": "modrinth"},
+            {"displayName": "Sodium", "id": "sodium", "site": "modrinth"},
+            {"displayName": "Lithium", "id": "lithium", "site": "modrinth"},
+            {"displayName": "VoiceChat", "id": "simple-voice-chat", "site": "modrinth"}
+        ]
+    }
+]
