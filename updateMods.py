@@ -203,8 +203,6 @@ for config in configs:
                     # this will do something different
                     print(f"ERROR: {e.args[0]}")
                     errors_count += 1
-            case "github":
-                pass
             case _:
                 print(f"ERROR: {mod["site"].title()} is not currently supported.  Skipping {mod["displayName"]}")
                 errors_count += 1
