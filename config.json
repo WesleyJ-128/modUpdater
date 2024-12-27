@@ -5,21 +5,22 @@
         "type": "client",
         "directory": "C:\\Users\\johnsw9\\AppData\\Roaming\\.minecraft",
         "name": "",
-        "install_fabric": true,
+        "loader": "fabric",
+        "install_loader": true,
         "fabric_installer_name": "fabricInstaller.jar",
         "mods_folder": "mods2",
-        "mod_urls": {
-            "carpet": "https://github.com/gnembon/fabric-carpet",
-            "carpet-extra": "https://github.com/gnembon/carpet-extra",
-            "fabric_api": "https://modrinth.com/mod/fabric-api",
-            "item_scroller": "https://modrinth.com/mod/item-scroller",
-            "litematica": "https://modrinth.com/mod/litematica",
-            "miniHUD": "https://modrinth.com/mod/minihud",
-            "tweakeroo": "https://modrinth.com/mod/tweakeroo",
-            "malilib": "https://modrinth.com/mod/malilib",
-            "worldedit": "https://modrinth.com/plugin/worldedit",
-            "sodium": "https://modrinth.com/mod/sodium",
-            "lithium": "https://modrinth.com/mod/lithium"
-        }
+        "mods": [
+            {"displayName": "Carpet", "id": "carpet", "site": "github", "author": "gnembon"},
+            {"displayName": "Carpet-Extra", "id": "carpet-extra", "site": "github", "author": "gnembon"},
+            {"displayName": "FabricAPI", "id": "fabric-api", "site": "modrinth"},
+            {"displayName": "Itemscroller", "id": "item-scroller", "site": "modrinth"},
+            {"displayName": "Litematica", "id": "litematica", "site": "modrinth"},
+            {"displayName": "MiniHUD", "id": "minihud", "site": "modrinth"},
+            {"displayName": "Tweakeroo", "id": "tweakeroo", "site": "modrinth"},
+            {"displayName": "MaLiLib", "id": "malilib", "site": "modrinth"},
+            {"displayName": "WorldEdit", "id": "worldedit", "site": "modrinth"},
+            {"displayName": "Sodium", "id": "sodium", "site": "modrinth"},
+            {"displayName": "Lithium", "id": "lithium", "site": "modrinth"}
+        ]
     }
 ]
