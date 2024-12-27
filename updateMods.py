@@ -44,6 +44,7 @@ def english_list_join(stringList: list[str]) -> str:
         raise ValueError("List must not be empty")
 
 def latest_mc_version(snapshot = False) -> str:
+    global errors_count
     print("INFO: Getting latest Minecraft version (" + "including" * snapshot + "excluding" * (not snapshot) + " snapshots)...")
     version_manifest_response = requests.get("https://launchermeta.mojang.com/mc/game/version_manifest.json")
     try:
@@ -56,11 +57,14 @@ def latest_mc_version(snapshot = False) -> str:
         print(f"INFO: Latest version is {version}.")
     except requests.HTTPError as e:
         print(f"ERROR: {e.args[0]}. Could not retrieve Minecraft versions.")
+        errors_count += 1
         version = input("Please enter the desired version: ")
     finally:
         return version
 
 def download_modrinth_mod(id: str, display_name: str, version: str, loader: str, mods_folder_path: str, enforce_release = True) -> None:
+    global errors_count
+    global warnings_count
     # Get api data
     api_url = f"https://api.modrinth.com/v2/project/{id}/version"
     api_response = requests.get(api_url)
@@ -116,6 +120,7 @@ def download_modrinth_mod(id: str, display_name: str, version: str, loader: str,
         # Make sure there isn't a non-mod file of the same name
         if os.path.isfile(file_path):
             print(f"WARNING: A file with the same name as the desired mod already exists. Removing {primary_file["filename"]}.")
+            warnings_count += 1
             oldversions.remove(primary_file["filename"])
             os.remove(file_path)
         # Download file
@@ -137,6 +142,10 @@ def download_modrinth_mod(id: str, display_name: str, version: str, loader: str,
             # Remove partially/incorrectly downloaded file
             os.remove(file_path)
             raise DownloadError("Download failed.")
+
+# For reporting total errors/warnings at end of script
+warnings_count: int = 0
+errors_count: int = 0
 
 # Parse arguments
 version = "1.21.3"
@@ -184,16 +193,27 @@ for config in configs:
                     download_modrinth_mod(mod["id"], mod["displayName"], config_specified_version, config["loader"], mods_folder)
                 except ValueError as e:
                     print(f"WARNING: {e.args[0]}")
+                    warnings_count += 1
                 except (requests.HTTPError, DownloadError) as e:
                     print(f"ERROR: {e.args[0]}")
+                    errors_count += 1
                 except OSError as e:
                     # this will do something different
                     print(f"ERROR: {e.args[0]}")
+                    errors_count += 1
             case "github":
                 pass
             case _:
                 print(f"ERROR: {mod["site"].title()} is not currently supported.  Skipping {mod["displayName"]}")
+                errors_count += 1
                 continue
+    
+if (warnings_count + errors_count):
+    warnings = f"{warnings_count} warning" + "s" * (warnings_count == 0 or warnings_count > 1)
+    errors = f"{errors_count} error" + "s" * (errors_count == 0 or errors_count > 1)
+    print(f"INFO: Script completed with {errors} and {warnings}.")
+else:
+    print("Script completed with no errors or warnings.")
 
 
 
