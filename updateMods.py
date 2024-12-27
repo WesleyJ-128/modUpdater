@@ -121,10 +121,14 @@ def download_modrinth_mod(id: str, display_name: str, version: str, loader: str,
             os.remove(file_path)
             raise DownloadError("Download failed.")
 
+# Parse arguments
+version = "1.21.3"
+mode = "client"
+config_file_name = "config.json"
 
 
 # Import config file
-with open(sys.argv[1]) as config_file:
+with open(config_file_name) as config_file:
     configs = json.loads(config_file.read())
 
 for config in configs:
@@ -132,13 +136,13 @@ for config in configs:
     mods_folder = os.path.join(config["directory"], config["mods_folder"])
 
     # Get version
-    version = "1.21.3"
+    config_specified_version = "1.21.3"
 
     for mod in config["mods"]:
         match mod["site"]:
             case "modrinth":
                 try:
-                    download_modrinth_mod(mod["id"], mod["displayName"], version, config["loader"], mods_folder)
+                    download_modrinth_mod(mod["id"], mod["displayName"], config_specified_version, config["loader"], mods_folder)
                 except ValueError as e:
                     print(f"WARNING: {e.args[0]}")
                 except (requests.HTTPError, DownloadError) as e:
