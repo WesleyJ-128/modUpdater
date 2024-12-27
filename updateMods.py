@@ -57,6 +57,7 @@ def download_modrinth_mod(id: str, display_name: str, version: str, loader: str,
         else:
             primary_file = mod_version["files"][0]
         filenames.append(primary_file["filename"])
+    # Find any existing files that whose names are versions of this mod
     mods = os.listdir(mods_folder_path)
     oldversions = [x for x in mods if x in filenames]
 
@@ -65,6 +66,7 @@ def download_modrinth_mod(id: str, display_name: str, version: str, loader: str,
     any_available = bool(matching_game_version)
     if enforce_release:
         matching_game_version = [x for x in matching_game_version if x["version_type"] == "release"]
+    
     # Get latest matching mod version
     try:
         latest_release_time = max([x["date_published"] for x in matching_game_version])
@@ -101,13 +103,17 @@ def download_modrinth_mod(id: str, display_name: str, version: str, loader: str,
             file_response = requests.get(primary_file["url"])
             file_response.raise_for_status()
             file.write(file_response.content)
+
+        # Check that the download was successful (i. e. we got the file we wanted)
         if matches_hashes(file_path, primary_file["hashes"]["sha1"], primary_file["hashes"]["sha512"]):
             print("INFO: Download complete.")
+            # Remove old versions of this mod
             if oldversions:
                 print("INFO: Removing old version" + "s" * bool(len(oldversions) - 1) + f" of {display_name}: " + english_list_join(oldversions) + ".")
                 for file in oldversions:
                     os.remove(os.path.join(mods_folder_path, file))
         else:
+            # Remove partially/incorrectly downloaded file
             os.remove(file_path)
             raise DownloadError("Download failed.")
 
