@@ -201,8 +201,8 @@ for config in configs:
                     errors_count += 1
                 except OSError as e:
                     # this will do something different
-                    print(f"ERROR: {e.args[0]}")
-                    errors_count += 1
+                    print(f"WARNING: {e.args[0]}.  Removing old versions of {mod["displayName"]} failed.  Inspecting the mods folder is recommended.")
+                    warnings_count += 1
             case _:
                 print(f"ERROR: {mod["site"].title()} is not currently supported.  Skipping {mod["displayName"]}")
                 errors_count += 1
