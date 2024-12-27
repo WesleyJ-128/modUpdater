@@ -62,6 +62,30 @@ def latest_mc_version(snapshot = False) -> str:
     finally:
         return version
 
+def downstep_version(version: str) -> str:
+    version_parts = version.split(".")
+    if not all([x.isnumeric() for x in version_parts]):
+        raise ValueError(
+            f"{version} is a snapshot, prerelease, release candidate, or April Fool's update, and cannot be decremented.",
+            version
+        )
+    match len(version_parts):
+        case 2:
+            # Base version, so can't downstep
+            raise ValueError(f"{version} is a base version and cannot be decremented", version + ".x")
+        case 3:
+            if version_parts[2] == "0":
+                # Not sure how this would happen but good to check for it
+                base_version = version_parts[0] + "." + version_parts[1]
+                raise ValueError(f"{base_version} is a base version and cannot be decremented", base_version + ".x")
+            new_minor = int(version_parts[2]) - 1
+            if not new_minor:
+                return version_parts[0] + "." + version_parts[1]
+            return version_parts[0] + "." + version_parts[1] + "." + str(new_minor)
+
+    
+
+
 def download_modrinth_mod(id: str, display_name: str, version: str, loader: str, mods_folder_path: str, enforce_release = True) -> None:
     global errors_count
     global warnings_count
@@ -191,18 +215,40 @@ for config in configs:
     for mod in config["mods"]:
         match mod["site"]:
             case "modrinth":
-                try:
-                    download_modrinth_mod(mod["id"], mod["displayName"], config_specified_version, config["loader"], mods_folder)
-                except ValueError as e:
-                    print(f"WARNING: {e.args[0]}")
-                    warnings_count += 1
-                except (requests.HTTPError, DownloadError) as e:
-                    print(f"ERROR: {e.args[0]}")
-                    errors_count += 1
-                except OSError as e:
-                    # this will do something different
-                    print(f"WARNING: {e.args[0]}.  Removing old versions of {mod["displayName"]} failed.  Inspecting the mods folder is recommended.")
-                    warnings_count += 1
+                iterator_version = config_specified_version
+                enforce_release = True
+                while True:
+                    try:
+                        download_modrinth_mod(mod["id"], mod["displayName"], iterator_version, config["loader"], mods_folder, enforce_release)
+                        break
+                    except ValueError as e:
+                        print(f"WARNING: {e.args[0]}")
+                        warnings_count += 1
+
+                        if enforce_release:
+                            print("INFO: Checking alpha/beta/prereleases...")
+                            enforce_release = False
+                            continue
+                        else:
+                            enforce_release = True
+                            try:
+                                iterator_version = downstep_version(iterator_version)
+                                print(f"INFO: Checking for {mod["displayName"]} versions compatible with Minecraft {iterator_version}...")
+                            except ValueError as e:
+                                print(f"ERROR: Could not find {mod["displayName"]} for {e.args[1]}")
+                                errors_count += 1
+                                break
+
+                    except (requests.HTTPError, DownloadError) as e:
+                        print(f"ERROR: {e.args[0]}")
+                        errors_count += 1
+                        break
+
+                    except OSError as e:
+                        # this will do something different
+                        print(f"WARNING: {e.args[0]}.  Removing old versions of {mod["displayName"]} failed.  Inspecting the mods folder is recommended.")
+                        warnings_count += 1
+                        break
             case _:
                 print(f"ERROR: {mod["site"].title()} is not currently supported.  Skipping {mod["displayName"]}")
                 errors_count += 1
