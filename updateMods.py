@@ -148,7 +148,7 @@ warnings_count: int = 0
 errors_count: int = 0
 
 # Parse arguments
-version = "1.21.3"
+version = "1.19.4"
 mode = "client"
 config_file_name = "config.json"
 latest_version = None
@@ -164,6 +164,8 @@ for config in configs:
     enable_mode = config["enabled"].lower()
     if enable_mode == "false" or (enable_mode == "auto" and config["type"] != mode):
         continue
+
+    print(f"INFO: Updating {mode} {config["name"]}...")
 
     # Get mods folder path
     mods_folder = os.path.join(config["directory"], config["mods_folder"])
