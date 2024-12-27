@@ -43,6 +43,23 @@ def english_list_join(stringList: list[str]) -> str:
     else:
         raise ValueError("List must not be empty")
 
+def latest_mc_version(snapshot = False) -> str:
+    print("INFO: Getting latest Minecraft version (" + "including" * snapshot + "excluding" * (not snapshot) + " snapshots)...")
+    version_manifest_response = requests.get("https://launchermeta.mojang.com/mc/game/version_manifest.json")
+    try:
+        version_manifest_response.raise_for_status()
+        version_manifest_json = json.loads(version_manifest_response.text)
+        if snapshot:
+            version = version_manifest_json["latest"]["snapshot"]
+        else:
+            version = version_manifest_json["latest"]["release"]
+        print(f"INFO: Latest version is {version}.")
+    except requests.HTTPError as e:
+        print(f"ERROR: {e.args[0]}. Could not retrieve Minecraft versions.")
+        version = input("Please enter the desired version: ")
+    finally:
+        return version
+
 def download_modrinth_mod(id: str, display_name: str, version: str, loader: str, mods_folder_path: str, enforce_release = True) -> None:
     # Get api data
     api_url = f"https://api.modrinth.com/v2/project/{id}/version"
@@ -125,6 +142,7 @@ def download_modrinth_mod(id: str, display_name: str, version: str, loader: str,
 version = "1.21.3"
 mode = "client"
 config_file_name = "config.json"
+latest_version = None
 
 
 # Import config file
@@ -132,11 +150,32 @@ with open(config_file_name) as config_file:
     configs = json.loads(config_file.read())
 
 for config in configs:
+    # Skip if this config is disabled or set to auto and doesn't match the specified mode
+    # (e. g. config is for server, script is in client mode)
+    enable_mode = config["enabled"].lower()
+    if enable_mode == "false" or (enable_mode == "auto" and config["type"] != mode):
+        continue
+
     # Get mods folder path
     mods_folder = os.path.join(config["directory"], config["mods_folder"])
 
     # Get version
-    config_specified_version = "1.21.3"
+    try:
+        match config["version"].lower():
+            case "auto":
+                config_specified_version = version
+            case "latest":
+                if not latest_version:
+                    config_specified_version = latest_mc_version(False)
+                else:
+                    config_specified_version = latest_version
+            case "latest_snapshot":
+                config_specified_version = latest_mc_version(True)
+            case _:
+                config_specified_version = config["version"]
+    except KeyError:
+        # No version specified in config, so assume auto (whatever the script was given)
+        config_specified_version = version
 
     for mod in config["mods"]:
         match mod["site"]:
