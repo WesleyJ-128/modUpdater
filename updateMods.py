@@ -33,11 +33,15 @@ def matches_hashes(filepath: str, sha1: str, sha512: str) -> bool:
     return False
 
 def english_list_join(stringList: list[str]) -> str:
-    if len(stringList) == 1:
-        return stringList[0]
-    if len(stringList) == 2:
-        return " and ".join(stringList)
-    return ", ".join(stringList[:-1]) + f", and {stringList[-1]}"
+    length = len(stringList)
+    if length:
+        if length == 1:
+            return stringList[0]
+        if length == 2:
+            return " and ".join(stringList)
+        return ", ".join(stringList[:-1]) + f", and {stringList[-1]}"
+    else:
+        raise ValueError("List must not be empty")
 
 def download_modrinth_mod(id: str, display_name: str, version: str, loader: str, mods_folder_path: str, enforce_release = True) -> None:
     # Get api data
