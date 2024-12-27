@@ -20,7 +20,8 @@
             {"displayName": "MaLiLib", "id": "malilib", "site": "modrinth"},
             {"displayName": "WorldEdit", "id": "worldedit", "site": "modrinth"},
             {"displayName": "Sodium", "id": "sodium", "site": "modrinth"},
-            {"displayName": "Lithium", "id": "lithium", "site": "modrinth"}
+            {"displayName": "Lithium", "id": "lithium", "site": "modrinth"},
+            {"displayName": "VoiceChat", "id": "simple-voice-chat", "site": "modrinth"}
         ]
     }
 ]
