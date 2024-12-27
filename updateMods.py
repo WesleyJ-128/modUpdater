@@ -11,7 +11,10 @@ SUPPORTED_SITES = []
 def download_modrinth_mod(id: str, version: str, loader: str, path: str, enforce_release = True) -> None:
     # Get api data
     api_url = f"https://api.modrinth.com/v2/project/{id}/version"
-    mod_json = json.loads(requests.get(api_url).text)
+    api_response = requests.get(api_url)
+    # Ensure api response was successful
+    api_response.raise_for_status()
+    mod_json = json.loads(api_response.text)
 
     # Filter for:  Matches game version, matches loader, and (if specified) is a full release
     matching_game_version = [x for x in mod_json if version in x["game_versions"] and loader in x["loaders"] and (not enforce_release or x["version_type"] == "release")]
@@ -51,6 +54,8 @@ for config in configs:
                     download_modrinth_mod(mod["id"], version, config["loader"], mods_folder)
                 except ValueError as e:
                     print(f"WARNING: {e.args[0]}")
+                except requests.HTTPError as e:
+                    print(f"ERROR: {e.args[0]}")
             case "github":
                 pass
             case _:
