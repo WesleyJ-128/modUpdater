@@ -3,12 +3,22 @@ import requests
 import os
 import json
 import hashlib
+from enum import Enum
 import urllib.parse
 import copy
 import re
 
 class DownloadError(BaseException):
     pass
+
+class PrintType(Enum):
+    INFO = "INFO: "
+    INFO_WARN = "INFO-WARN: "
+    WARNING = "WARNING: "
+    ERROR = "ERROR: "
+
+def log_print(msg_type: PrintType, msg: str) -> None:
+    print(msg_type.value + msg)
 
 def matches_hashes(filepath: str, sha1: str, sha512: str) -> bool:
     sha1alg = hashlib.sha1()
@@ -42,7 +52,7 @@ def english_list_join(stringList: list[str]) -> str:
 
 def latest_mc_version(snapshot = False) -> str:
     global errors_count
-    print("INFO: Getting latest Minecraft version (" + "including" * snapshot + "excluding" * (not snapshot) + " snapshots)...")
+    log_print(PrintType.INFO, "Getting latest Minecraft version (" + "including" * snapshot + "excluding" * (not snapshot) + " snapshots)...")
     version_manifest_response = requests.get("https://launchermeta.mojang.com/mc/game/version_manifest.json")
     try:
         version_manifest_response.raise_for_status()
@@ -51,9 +61,9 @@ def latest_mc_version(snapshot = False) -> str:
             version = version_manifest_json["latest"]["snapshot"]
         else:
             version = version_manifest_json["latest"]["release"]
-        print(f"INFO: Latest version is {version}.")
+        log_print(PrintType.INFO, f"Latest version is {version}.")
     except requests.HTTPError as e:
-        print(f"ERROR: {e.args[0]}. Could not retrieve Minecraft versions.")
+        log_print(PrintType.ERROR, f"{e.args[0]}. Could not retrieve Minecraft versions.")
         errors_count += 1
         version = input("Please enter the desired version: ")
     finally:
@@ -135,27 +145,27 @@ def download_modrinth_mod(id: str, display_name: str, version: str, loader: str,
     # Check if we already have the desired file
     # Utilizing short-circuit logic to only calculate hashes if the filename exists
     if os.path.isfile(file_path) and matches_hashes(file_path, primary_file["hashes"]["sha1"], primary_file["hashes"]["sha512"]):
-        print(f"INFO: The latest version of {display_name} compatible with {version} is already present.  Skipping download.")
+        log_print(PrintType.INFO, f"The latest version of {display_name} compatible with {version} is already present.  Skipping download.")
     else:
         # Make sure there isn't a non-mod file of the same name
         if os.path.isfile(file_path):
-            print(f"WARNING: A file with the same name as the desired mod already exists. Removing {primary_file["filename"]}.")
+            log_print(PrintType.WARNING, f"A file with the same name as the desired mod already exists. Removing {primary_file["filename"]}.")
             warnings_count += 1
             oldversions.remove(primary_file["filename"])
             os.remove(file_path)
         # Download file
         with open(file_path, "wb") as file:
-            print(f"INFO: Downloading {primary_file["filename"]} for {version} from Modrinth...")
+            log_print(PrintType.INFO, f"Downloading {primary_file["filename"]} for {version} from Modrinth...")
             file_response = requests.get(primary_file["url"])
             file_response.raise_for_status()
             file.write(file_response.content)
 
         # Check that the download was successful (i. e. we got the file we wanted)
         if matches_hashes(file_path, primary_file["hashes"]["sha1"], primary_file["hashes"]["sha512"]):
-            print("INFO: Download complete.")
+            log_print(PrintType.INFO, "Download complete.")
             # Remove old versions of this mod
             if oldversions:
-                print("INFO: Removing old version" + "s" * bool(len(oldversions) - 1) + f" of {display_name}: " + english_list_join(oldversions) + ".")
+                log_print(PrintType.INFO, "Removing old version" + "s" * bool(len(oldversions) - 1) + f" of {display_name}: " + english_list_join(oldversions) + ".")
                 for file in oldversions:
                     os.remove(os.path.join(mods_folder_path, file))
         else:
@@ -176,7 +186,7 @@ version = latest_mc_version()
 mode = "client"
 config_file_name = "config.json"
 
-print(f"INFO: Mod Updater script starting using config file {config_file_name}.")
+log_print(PrintType.INFO, f"Mod Updater script starting using config file {config_file_name}.")
 
 # Import config file
 with open(config_file_name) as config_file:
@@ -189,9 +199,9 @@ for config in configs:
     if enable_mode == "false" or (enable_mode == "auto" and config["type"] != mode):
         continue
     if enable_mode == "true":
-        print(f"INFO-WARN: Enable override is true for {config["name"]}, running despite mode/type mismatch")
+        log_print(PrintType.INFO_WARN, f"Enable override is true for {config["name"]}, running despite mode/type mismatch")
 
-    print(f"INFO: Updating {mode} {config["name"]}...")
+    log_print(PrintType.INFO, f"Updating {mode} {config["name"]}...")
 
     # Get mods folder path
     mods_folder = os.path.join(config["directory"], config["mods_folder"])
@@ -201,31 +211,31 @@ for config in configs:
         match config["version"].lower():
             case "auto":
                 config_specified_version = version
-                print(f"INFO: Using version {config_specified_version}.")
+                log_print(PrintType.INFO, f"Using version {config_specified_version}.")
             case "latest":
                 if inputVersion == "latest":
                     config_specified_version = version
-                    print(f"INFO: Using version {config_specified_version}.")
+                    log_print(PrintType.INFO, f"Using version {config_specified_version}.")
                 else:
                     config_specified_version = latest_mc_version(False)
                     if inputVersion == "latest_snapshot":
-                        print(f"INFO-WARN: Script was run with latest_snapshot version, but config override is set to latest. Using version {config_specified_version}.")
+                        log_print(PrintType.INFO_WARN, f"Script was run with latest_snapshot version, but config override is set to latest. Using version {config_specified_version}.")
                     else:
-                        print(f"INFO-WARN: Script was run with version {version}, but config override is set to latest.  Using version {config_specified_version}.")  
+                        log_print(PrintType.INFO_WARN, f"Script was run with version {version}, but config override is set to latest.  Using version {config_specified_version}.")  
             case "latest_snapshot":
                 if inputVersion == "latest_snapshot":
                     config_specified_version = version
-                    print(f"INFO: Using version {config_specified_version}.")
+                    log_print(PrintType.INFO, f"Using version {config_specified_version}.")
                 else:
                     config_specified_version = latest_mc_version(True)
                     if inputVersion == "latest":
-                        print(f"INFO-WARN: Script was run with latest version, but config override is set to latest_snapshot. Using version {config_specified_version}.")
+                        log_print(PrintType.INFO_WARN, f"Script was run with latest version, but config override is set to latest_snapshot. Using version {config_specified_version}.")
                     else:
-                        print(f"INFO-WARN: Script was run with version {version}, but config override is set to latest_snapshot.  Using version {config_specified_version}.")  
+                        log_print(PrintType.INFO_WARN, f"Script was run with version {version}, but config override is set to latest_snapshot.  Using version {config_specified_version}.")  
                 
             case _:
                 config_specified_version = config["version"]
-                print(f"INFO-WARN: Script was run with version {version}, but config override is set to {config_specified_version}.")
+                log_print(PrintType.INFO_WARN, f"Script was run with version {version}, but config override is set to {config_specified_version}.")
     except KeyError:
         # No version specified in config, so assume auto (whatever the script was given)
         config_specified_version = version
@@ -240,44 +250,43 @@ for config in configs:
                         download_modrinth_mod(mod["id"], mod["displayName"], iterator_version, config["loader"], mods_folder, enforce_release)
                         break
                     except ValueError as e:
-                        print(f"WARNING: {e.args[0]}")
+                        log_print(PrintType.WARNING, str(e.args[0]))
                         warnings_count += 1
 
                         if enforce_release:
-                            print("INFO: Checking alpha/beta/prereleases...")
+                            log_print(PrintType.INFO, "Checking alpha/beta/prereleases...")
                             enforce_release = False
                             continue
                         else:
                             enforce_release = True
                             try:
                                 iterator_version = downstep_version(iterator_version)
-                                print(f"INFO: Checking for {mod["displayName"]} versions compatible with Minecraft {iterator_version}...")
+                                log_print(PrintType.INFO, f"Checking for {mod["displayName"]} versions compatible with Minecraft {iterator_version}...")
                             except ValueError as e:
-                                print(f"ERROR: Could not find {mod["displayName"]} for {e.args[1]}")
+                                log_print(PrintType.ERROR, f"Could not find {mod["displayName"]} for {e.args[1]}")
                                 errors_count += 1
                                 break
 
                     except (requests.HTTPError, DownloadError) as e:
-                        print(f"ERROR: {e.args[0]}.  Could not download {mod["displayName"]}.")
+                        log_print(PrintType.ERROR, f"{e.args[0]}.  Could not download {mod["displayName"]}.")
                         errors_count += 1
                         break
 
                     except OSError as e:
-                        # this will do something different
-                        print(f"WARNING: {e.args[0]}.  Removing old versions of {mod["displayName"]} failed.  Inspecting the mods folder is recommended.")
+                        log_print(PrintType.WARNING, f"{e.args[0]}.  Removing old versions of {mod["displayName"]} failed.  Inspecting the mods folder is recommended.")
                         warnings_count += 1
                         break
             case _:
-                print(f"ERROR: {mod["site"].title()} is not currently supported.  Skipping {mod["displayName"]}")
+                log_print(PrintType.ERROR, f"{mod["site"].title()} is not currently supported.  Skipping {mod["displayName"]}")
                 errors_count += 1
                 continue
     
 if (warnings_count + errors_count):
     warnings = f"{warnings_count} warning" + "s" * (warnings_count == 0 or warnings_count > 1)
     errors = f"{errors_count} error" + "s" * (errors_count == 0 or errors_count > 1)
-    print(f"INFO: Script completed with {errors} and {warnings}.")
+    log_print(PrintType.INFO, f"Script completed with {errors} and {warnings}.")
 else:
-    print("INFO: Script completed with no errors or warnings.")
+    log_print(PrintType.INFO, "Script completed with no errors or warnings.")
 
 
 
@@ -289,5 +298,4 @@ else:
 #    file.write(fabricInstaller.content)
 #os.system("java -jar {0} client -mcversion {1}".format(fabric_installer_name, version))
 #os.remove(fabric_installer_name)
-#print()
             
