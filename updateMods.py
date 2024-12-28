@@ -246,6 +246,7 @@ for config in configs:
     except KeyError:
         # No version specified in config, so assume auto (whatever the script was given)
         config_specified_version = version
+        log_print(PrintType.INFO, f"Using version {config_specified_version}.")
 
     for mod in config["mods"]:
         match mod["site"]:
