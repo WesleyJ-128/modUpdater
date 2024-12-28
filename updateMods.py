@@ -12,13 +12,13 @@ class DownloadError(BaseException):
     pass
 
 class PrintType(Enum):
-    INFO = "INFO: "
-    INFO_WARN = "INFO-WARN: "
-    WARNING = "WARNING: "
-    ERROR = "ERROR: "
+    INFO = {"prefix": "INFO: ", "color": ""}
+    INFO_WARN = {"prefix": "INFO-WARN: ", "color": "\033[96m"}
+    WARNING = {"prefix": "WARNING: ", "color": "\033[93m"}
+    ERROR = {"prefix": "ERROR: ", "color": "\033[91m"}
 
 def log_print(msg_type: PrintType, msg: str) -> None:
-    print(msg_type.value + msg)
+    print(f"{msg_type.value["color"]}{msg_type.value["prefix"]}{msg}\033[0m")
 
 def matches_hashes(filepath: str, sha1: str, sha512: str) -> bool:
     sha1alg = hashlib.sha1()
@@ -46,13 +46,13 @@ def english_list_join(stringList: list[str]) -> str:
             return stringList[0]
         if length == 2:
             return " and ".join(stringList)
-        return ", ".join(stringList[:-1]) + f", and {stringList[-1]}"
+        return f"{", ".join(stringList[:-1])}, and {stringList[-1]}"
     else:
         raise ValueError("List must not be empty")
 
 def latest_mc_version(snapshot = False) -> str:
     global errors_count
-    log_print(PrintType.INFO, "Getting latest Minecraft version (" + "including" * snapshot + "excluding" * (not snapshot) + " snapshots)...")
+    log_print(PrintType.INFO, f"Getting latest Minecraft version ({"including" * snapshot}{"excluding" * (not snapshot)} snapshots)...")
     version_manifest_response = requests.get("https://launchermeta.mojang.com/mc/game/version_manifest.json")
     try:
         version_manifest_response.raise_for_status()
@@ -79,16 +79,16 @@ def downstep_version(version: str) -> str:
     match len(version_parts):
         case 2:
             # Base version, so can't downstep
-            raise ValueError(f"{version} is a base version and cannot be decremented", version + ".x")
+            raise ValueError(f"{version} is a base version and cannot be decremented", f"{version}.x")
         case 3:
             if version_parts[2] == "0":
                 # Not sure how this would happen but good to check for it
-                base_version = version_parts[0] + "." + version_parts[1]
-                raise ValueError(f"{base_version} is a base version and cannot be decremented", base_version + ".x")
+                base_version = f"{version_parts[0]}.{version_parts[1]}"
+                raise ValueError(f"{base_version} is a base version and cannot be decremented", f"{base_version}.x")
             new_minor = int(version_parts[2]) - 1
             if not new_minor:
-                return version_parts[0] + "." + version_parts[1]
-            return version_parts[0] + "." + version_parts[1] + "." + str(new_minor)
+                return f"{version_parts[0]}.{version_parts[1]}"
+            return f"{version_parts[0]}.{version_parts[1]}.{str(new_minor)}"
 
 
 
@@ -127,7 +127,7 @@ def download_modrinth_mod(id: str, display_name: str, version: str, loader: str,
         latest_release_time = max([x["date_published"] for x in matching_game_version])
     except ValueError as e:
         raise ValueError(
-            f"Cannot find {display_name} for {version}" + enforce_release * " among full releases" + (not enforce_release) * ", including alpha/beta/prereleases",
+            f"Cannot find {display_name} for {version}{enforce_release * " among full releases"}{(not enforce_release) * ", including alpha/beta/prereleases"}",
             any_available
         )
     latest_release_json = [x for x in matching_game_version if x["date_published"] == latest_release_time][0]
@@ -165,7 +165,7 @@ def download_modrinth_mod(id: str, display_name: str, version: str, loader: str,
             log_print(PrintType.INFO, "Download complete.")
             # Remove old versions of this mod
             if oldversions:
-                log_print(PrintType.INFO, "Removing old version" + "s" * bool(len(oldversions) - 1) + f" of {display_name}: " + english_list_join(oldversions) + ".")
+                log_print(PrintType.INFO, f"Removing old version{"s" * bool(len(oldversions) - 1)} of {display_name}: {english_list_join(oldversions)}.")
                 for file in oldversions:
                     os.remove(os.path.join(mods_folder_path, file))
         else:
@@ -181,8 +181,8 @@ warnings_count: int = 0
 errors_count: int = 0
 
 # Parse arguments
-inputVersion = "latest"
-version = latest_mc_version()
+inputVersion = "latest_snapshot"
+version = latest_mc_version(True)
 mode = "client"
 config_file_name = "config.json"
 
@@ -282,8 +282,8 @@ for config in configs:
                 continue
     
 if (warnings_count + errors_count):
-    warnings = f"{warnings_count} warning" + "s" * (warnings_count == 0 or warnings_count > 1)
-    errors = f"{errors_count} error" + "s" * (errors_count == 0 or errors_count > 1)
+    warnings = f"{warnings_count} warning{"s" * (warnings_count != 1)}"
+    errors = f"{errors_count} error{"s" * (errors_count != 1)}"
     log_print(PrintType.INFO, f"Script completed with {errors} and {warnings}.")
 else:
     log_print(PrintType.INFO, "Script completed with no errors or warnings.")
