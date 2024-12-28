@@ -12,10 +12,10 @@ class DownloadError(BaseException):
     pass
 
 class PrintType(Enum):
-    INFO = {"prefix": "INFO: ", "color": ""}
-    INFO_WARN = {"prefix": "INFO-WARN: ", "color": "\033[96m"}
-    WARNING = {"prefix": "WARNING: ", "color": "\033[93m"}
-    ERROR = {"prefix": "ERROR: ", "color": "\033[91m"}
+    INFO = {"prefix": "INFO: ", "color": "", "level": 0}
+    INFO_WARN = {"prefix": "INFO-WARN: ", "color": "\033[96m", "level": 1}
+    WARNING = {"prefix": "WARNING: ", "color": "\033[93m", "level": 2}
+    ERROR = {"prefix": "ERROR: ", "color": "\033[91m", "level": 3}
 
 def log_print(msg_type: PrintType, msg: str) -> None:
     global errors_count
@@ -29,8 +29,12 @@ def log_print(msg_type: PrintType, msg: str) -> None:
             warnings_count += 1
         case PrintType.ERROR:
             errors_count += 1
-    print_msg = f"{msg_type.value["color"]}{msg_type.value["prefix"]}{msg}\033[0m"
-    print(print_msg)
+    if msg_type.value["level"] + print_verbosity >= (levels := len(set([x.value["level"] for x in PrintType]))):
+        print_msg = f"{msg_type.value["color"]}{msg_type.value["prefix"]}{msg}\033[0m"
+        print(print_msg)
+    if msg_type.value["level"] + log_verbosity >= levels:
+        # log message to file
+        pass
 
 def matches_hashes(filepath: str, sha1: str, sha512: str) -> bool:
     sha1alg = hashlib.sha1()
@@ -230,7 +234,7 @@ parser.add_argument("-v", "--print-verbosity", type = int, choices = range(5), d
 parser.epilog = "Verbosity levels:\n\t0: Silent\n\t1: ERROR messages only\n\t2: ERRORs and WARNINGs\n\t3: ERRORs, WARNINGs, and INFO_WARNs\n\t4: All messages (including INFO)"
 
 # Parse arguments (replace with sys.argv)
-parsed_args = vars(parser.parse_args("config.json client".split()))
+parsed_args = vars(parser.parse_args("config.json client -m1.21.4".split()))
 
 input_version = parsed_args["mcversion"]
 mode = parsed_args["mode"]
