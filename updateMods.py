@@ -7,9 +7,6 @@ import urllib.parse
 import copy
 import re
 
-# Arbitrary buffer size for reading files into hash function
-BUFFER_SIZE = 65536 # Bytes (64KB)
-
 class DownloadError(BaseException):
     pass
 
@@ -83,7 +80,6 @@ def downstep_version(version: str) -> str:
                 return version_parts[0] + "." + version_parts[1]
             return version_parts[0] + "." + version_parts[1] + "." + str(new_minor)
 
-    
 
 
 def download_modrinth_mod(id: str, display_name: str, version: str, loader: str, mods_folder_path: str, enforce_release = True) -> None:
@@ -167,16 +163,20 @@ def download_modrinth_mod(id: str, display_name: str, version: str, loader: str,
             os.remove(file_path)
             raise DownloadError("Download failed.")
 
+# Arbitrary buffer size for reading files into hash function
+BUFFER_SIZE = 65536 # Bytes (64KB)
+
 # For reporting total errors/warnings at end of script
 warnings_count: int = 0
 errors_count: int = 0
 
 # Parse arguments
-version = "1.19.4"
+inputVersion = "latest"
+version = latest_mc_version()
 mode = "client"
 config_file_name = "config.json"
-latest_version = None
 
+print(f"INFO: Mod Updater script starting using config file {config_file_name}.")
 
 # Import config file
 with open(config_file_name) as config_file:
@@ -188,6 +188,8 @@ for config in configs:
     enable_mode = config["enabled"].lower()
     if enable_mode == "false" or (enable_mode == "auto" and config["type"] != mode):
         continue
+    if enable_mode == "true":
+        print(f"INFO-WARN: Enable override is true for {config["name"]}, running despite mode/type mismatch")
 
     print(f"INFO: Updating {mode} {config["name"]}...")
 
@@ -199,15 +201,31 @@ for config in configs:
         match config["version"].lower():
             case "auto":
                 config_specified_version = version
+                print(f"INFO: Using version {config_specified_version}.")
             case "latest":
-                if not latest_version:
-                    config_specified_version = latest_mc_version(False)
+                if inputVersion == "latest":
+                    config_specified_version = version
+                    print(f"INFO: Using version {config_specified_version}.")
                 else:
-                    config_specified_version = latest_version
+                    config_specified_version = latest_mc_version(False)
+                    if inputVersion == "latest_snapshot":
+                        print(f"INFO-WARN: Script was run with latest_snapshot version, but config override is set to latest. Using version {config_specified_version}.")
+                    else:
+                        print(f"INFO-WARN: Script was run with version {version}, but config override is set to latest.  Using version {config_specified_version}.")  
             case "latest_snapshot":
-                config_specified_version = latest_mc_version(True)
+                if inputVersion == "latest_snapshot":
+                    config_specified_version = version
+                    print(f"INFO: Using version {config_specified_version}.")
+                else:
+                    config_specified_version = latest_mc_version(True)
+                    if inputVersion == "latest":
+                        print(f"INFO-WARN: Script was run with latest version, but config override is set to latest_snapshot. Using version {config_specified_version}.")
+                    else:
+                        print(f"INFO-WARN: Script was run with version {version}, but config override is set to latest_snapshot.  Using version {config_specified_version}.")  
+                
             case _:
                 config_specified_version = config["version"]
+                print(f"INFO-WARN: Script was run with version {version}, but config override is set to {config_specified_version}.")
     except KeyError:
         # No version specified in config, so assume auto (whatever the script was given)
         config_specified_version = version
@@ -240,7 +258,7 @@ for config in configs:
                                 break
 
                     except (requests.HTTPError, DownloadError) as e:
-                        print(f"ERROR: {e.args[0]}")
+                        print(f"ERROR: {e.args[0]}.  Could not download {mod["displayName"]}.")
                         errors_count += 1
                         break
 
