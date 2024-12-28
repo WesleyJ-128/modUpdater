@@ -103,9 +103,13 @@ def downstep_version(version: str) -> str:
 def parse_version(version: str) -> str:
     global latest_version
     global latest_snapshot
+
     match version:
         case None | "":
+            # No version specified, so get the latest version.  This is for the 
+            # case where both the script and the config have no specified version.
             log_print(PrintType.INFO, "No version specified.")
+            # Check to make sure we haven't already gotten the latest version earlier
             if not latest_version:
                 latest_version = latest_mc_version(False)
             return latest_version
@@ -119,6 +123,7 @@ def parse_version(version: str) -> str:
             return latest_snapshot
         case _:
             return version
+
 
 
 def download_modrinth_mod(id: str, display_name: str, version: str, loader: str, mods_folder_path: str, enforce_release = True) -> None:
@@ -199,6 +204,8 @@ def download_modrinth_mod(id: str, display_name: str, version: str, loader: str,
             os.remove(file_path)
             raise DownloadError("Download failed.")
 
+
+
 # Arbitrary buffer size for reading files into hash function
 BUFFER_SIZE = 65536 # Bytes (64KB)
 
@@ -209,10 +216,14 @@ errors_count: int = 0
 latest_version: str = None
 latest_snapshot: str = None
 
+
+
 # Parse arguments
 input_version = ""
 mode = "client"
 config_file_name = "config.json"
+
+
 
 log_print(PrintType.INFO, f"Mod Updater script starting using config file {config_file_name}.")
 
@@ -222,6 +233,8 @@ parsed_version = parse_version(input_version)
 # Import config file
 with open(config_file_name) as config_file:
     configs = json.loads(config_file.read())
+
+
 
 for config in configs:
     # Skip if this config is disabled or set to auto and doesn't match the specified mode
@@ -236,10 +249,14 @@ for config in configs:
     if enable_mode == "true":
         log_print(PrintType.INFO_WARN, f"Enable override is true for {config["name"]}, running despite mode/type mismatch.")
 
+    
+    
     log_print(PrintType.INFO, f"Updating {mode} {config["name"]}...")
 
     # Get mods folder path
     mods_folder = os.path.join(config["directory"], config["mods_folder"])
+
+
 
     # Get version
     try:
@@ -257,6 +274,7 @@ for config in configs:
             else:
                 log_print(PrintType.INFO, f"No version specified.  Using config default version {selected_version}.")
         else:
+            # Override the config default with the argument passed from the script
             selected_version = parsed_version
             if input_version == "latest" or input_version == "latest_snapshot":
                 log_print(PrintType.INFO_WARN, f"Config version overridden.  Using {input_version} version {selected_version}")
@@ -264,13 +282,24 @@ for config in configs:
                 log_print(PrintType.INFO_WARN, f"Config version overridden.  Using version {selected_version}.")
             
     except KeyError:
-        # No version specified in config, so assume auto (whatever the script was given)
+        # No version specified in config, so use whatever the script was given
         selected_version = parsed_version
         log_print(PrintType.INFO, f"No default version specified by config.  Using version {selected_version}.")
 
+
+
+    # Install mods
     for mod in config["mods"]:
         match mod["site"]:
             case "modrinth":
+                # If we can't find the desired version, we can try to use the previous minor version
+                # (e.g can't find 1.19.4 --> try 1.19.3).  Additionally, Modrinth allows for selecting
+                # between mod releases and alpha/beta/prerelease versions, so we want to search as follows:
+                #   1: Desired version, releases only
+                #   2: Desired version, alphas/betas/prereleases, if there are any (determined during 1)
+                #   3: Downstep version, releases only
+                #   4: Downstep version, alphas/betas/prereleases, if there are any
+                #   5: Repeat 3 and 4 until: we find a mod version, or the base version (e.g. 1.19) fails.
                 iterator_version = selected_version
                 enforce_release = True
                 while True:
@@ -278,32 +307,46 @@ for config in configs:
                         download_modrinth_mod(mod["id"], mod["displayName"], iterator_version, config["loader"], mods_folder, enforce_release)
                         break
                     except ValueError as e:
+                        # download_modrinth_mod raises a ValueError if the given mod/version combination cannot be found
                         log_print(PrintType.WARNING, str(e.args[0]))
 
-                        if enforce_release:
+                        # The ValueError includes whether alpha/beta/prerelease versions were present as the second argument
+                        if enforce_release and e.args[1]:
+                            # Get the unstable version that we know exists
                             log_print(PrintType.INFO, "Checking alpha/beta/prereleases...")
                             enforce_release = False
                             continue
                         else:
+                            # Note that no unstable versions were found during the main check
+                            if enforce_release and not e.args[1]:
+                                log_print(PrintType.INFO_WARN, f"Did not find alpha/beta/prereleases of {mod["displayName"]} for {iterator_version}.")
+                            # Try again with the next version down
                             enforce_release = True
                             try:
                                 iterator_version = downstep_version(iterator_version)
                                 log_print(PrintType.INFO, f"Checking for {mod["displayName"]} versions compatible with Minecraft {iterator_version}...")
+                            # downstep_version raises a ValueError if the version cannot be downstepped further, in which case we report the 
+                            # error and give up.
                             except ValueError as e:
                                 log_print(PrintType.ERROR, f"Could not find {mod["displayName"]} for {e.args[1]}")
                                 break
 
                     except (requests.HTTPError, DownloadError) as e:
+                        # Something went wrong with getting api data or downloading the mod, report the error and give up.
                         log_print(PrintType.ERROR, f"{e.args[0]}.  Could not download {mod["displayName"]}.")
                         break
 
                     except OSError as e:
+                        # Couldn't remove old versions for some reason, but the new version downloaded successfully.
                         log_print(PrintType.WARNING, f"{e.args[0]}.  Removing old versions of {mod["displayName"]} failed.  Inspecting the mods folder is recommended.")
                         break
             case _:
                 log_print(PrintType.ERROR, f"{mod["site"].title()} is not currently supported.  Skipping {mod["displayName"]}")
                 continue
-    
+
+
+
+# Report total number of errors and warnings
 if (warnings_count + errors_count):
     warnings = f"{warnings_count} warning{"s" * (warnings_count != 1)}"
     errors = f"{errors_count} error{"s" * (errors_count != 1)}"
