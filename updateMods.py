@@ -1,4 +1,4 @@
-import sys
+import argparse
 import requests
 import os
 import json
@@ -218,10 +218,24 @@ latest_snapshot: str = None
 
 
 
-# Parse arguments
+# Set up argparser
+parser = argparse.ArgumentParser(formatter_class = argparse.RawDescriptionHelpFormatter)
+parser.add_argument("config_file", help = "path to config file; relative to script's directory or absolute")
+parser.add_argument("mode", choices = ["client", "server"], help = "whether the script should install client or server profiles")
+parser.add_argument("-l", "--logfile", default = "log.txt", help = "path to log file; relative to script's directory or absolute; default is log.txt in the script's directory")
+parser.add_argument("-m", "--mcversion", help = "Override config-specified game versions with MCVERSION.  Use \"latest\" for latest release or \"latest_snapshot\" for latest snapshot/prerelease/release candidate.")
+parser.add_argument("-n", "--noloader", action = "store_true", help = "disables installing modloader")
+parser.add_argument("-V", "--log-verbosity", type = int, choices = range(5), default = 4, help = "Sets the log file verbosity level.  Default is 4.")
+parser.add_argument("-v", "--print-verbosity", type = int, choices = range(5), default = 4, help = "Sets the stdout verbosity level.  Default is 4.")
+parser.epilog = "Verbosity levels:\n\t0: Silent\n\t1: ERROR messages only\n\t2: ERRORs and WARNINGs\n\t3: ERRORs, WARNINGs, and INFO_WARNs\n\t4: All messages (including INFO)"
+
 input_version = ""
 mode = "client"
 config_file_name = "config.json"
+install_loader = True
+log_verbosity = 4
+print_verbosity = 4
+logfile = "log.txt"
 
 
 
@@ -279,8 +293,7 @@ for config in configs:
             if input_version == "latest" or input_version == "latest_snapshot":
                 log_print(PrintType.INFO_WARN, f"Config version overridden.  Using {input_version} version {selected_version}")
             else:
-                log_print(PrintType.INFO_WARN, f"Config version overridden.  Using version {selected_version}.")
-            
+                log_print(PrintType.INFO_WARN, f"Config version overridden.  Using version {selected_version}.")         
     except KeyError:
         # No version specified in config, so use whatever the script was given
         selected_version = parsed_version
@@ -330,12 +343,10 @@ for config in configs:
                             except ValueError as e:
                                 log_print(PrintType.ERROR, f"Could not find {mod["displayName"]} for {e.args[1]}")
                                 break
-
                     except (requests.HTTPError, DownloadError) as e:
                         # Something went wrong with getting api data or downloading the mod, report the error and give up.
                         log_print(PrintType.ERROR, f"{e.args[0]}.  Could not download {mod["displayName"]}.")
                         break
-
                     except OSError as e:
                         # Couldn't remove old versions for some reason, but the new version downloaded successfully.
                         log_print(PrintType.WARNING, f"{e.args[0]}.  Removing old versions of {mod["displayName"]} failed.  Inspecting the mods folder is recommended.")
