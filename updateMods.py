@@ -226,7 +226,7 @@ latest_snapshot: str = None
 parser = argparse.ArgumentParser(formatter_class = argparse.RawDescriptionHelpFormatter)
 parser.add_argument("config_file", help = "path to config file; relative to script's directory or absolute")
 parser.add_argument("mode", choices = ["client", "server"], help = "whether the script should install client or server profiles")
-parser.add_argument("-l", "--logfile", default = "log.txt", help = "path to log file; relative to script's directory or absolute; default is log.txt in the script's directory")
+parser.add_argument("-l", "--logfile", default = "log.txt", help = "path to log file; relative to script's directory or absolute; default is log.txt in the script's directory; use None to disable logging")
 parser.add_argument("-m", "--mcversion", help = "Override config-specified game versions with MCVERSION.  Use \"latest\" for latest release or \"latest_snapshot\" for latest snapshot/prerelease/release candidate.")
 parser.add_argument("-n", "--noloader", action = "store_true", help = "disables installing modloader")
 parser.add_argument("-V", "--log-verbosity", type = int, choices = range(5), default = 4, help = "Sets the log file verbosity level.  Default is 4.")
@@ -234,7 +234,7 @@ parser.add_argument("-v", "--print-verbosity", type = int, choices = range(5), d
 parser.epilog = "Verbosity levels:\n\t0: Silent\n\t1: ERROR messages only\n\t2: ERRORs and WARNINGs\n\t3: ERRORs, WARNINGs, and INFO_WARNs\n\t4: All messages (including INFO)"
 
 # Parse arguments (replace with sys.argv)
-parsed_args = vars(parser.parse_args("config.json client -m1.21.4".split()))
+parsed_args = vars(parser.parse_args("config.json client -m1.21.4 -lNone".split()))
 
 input_version = parsed_args["mcversion"]
 mode = parsed_args["mode"]
