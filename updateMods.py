@@ -100,6 +100,25 @@ def downstep_version(version: str) -> str:
                 return f"{version_parts[0]}.{version_parts[1]}"
             return f"{version_parts[0]}.{version_parts[1]}.{str(new_minor)}"
 
+def parse_version(version: str) -> str:
+    global latest_version
+    global latest_snapshot
+    match version:
+        case None | "":
+            log_print(PrintType.INFO, "No version specified.")
+            if not latest_version:
+                latest_version = latest_mc_version(False)
+            return latest_version
+        case "latest":
+            if not latest_version:
+                latest_version = latest_mc_version(False)
+            return latest_version
+        case "latest_snapshot":
+            if not latest_snapshot:
+                latest_snapshot = latest_mc_version(True)
+            return latest_snapshot
+        case _:
+            return version
 
 
 def download_modrinth_mod(id: str, display_name: str, version: str, loader: str, mods_folder_path: str, enforce_release = True) -> None:
@@ -186,14 +205,19 @@ BUFFER_SIZE = 65536 # Bytes (64KB)
 # For reporting total errors/warnings at end of script
 warnings_count: int = 0
 errors_count: int = 0
+# Keep track of latest version/snapshot so we don't have to fetch them twice
+latest_version: str = None
+latest_snapshot: str = None
 
 # Parse arguments
-inputVersion = "latest_snapshot"
-version = latest_mc_version(True)
+input_version = ""
 mode = "client"
 config_file_name = "config.json"
 
 log_print(PrintType.INFO, f"Mod Updater script starting using config file {config_file_name}.")
+
+# Resolve "latest" or "latest_snapshot"
+parsed_version = parse_version(input_version)
 
 # Import config file
 with open(config_file_name) as config_file:
@@ -203,10 +227,14 @@ for config in configs:
     # Skip if this config is disabled or set to auto and doesn't match the specified mode
     # (e. g. config is for server, script is in client mode)
     enable_mode = config["enabled"].lower()
-    if enable_mode == "false" or (enable_mode == "auto" and config["type"] != mode):
+    if enable_mode == "false":
+        log_print(PrintType.INFO, f"Skipping disabled config {config["name"]}.")
+        continue
+    if enable_mode == "auto" and config["type"] != mode:
+        log_print(PrintType.INFO, f"Script is in {mode} mode, skipping {config["type"]} config {config["name"]}.")
         continue
     if enable_mode == "true":
-        log_print(PrintType.INFO_WARN, f"Enable override is true for {config["name"]}, running despite mode/type mismatch")
+        log_print(PrintType.INFO_WARN, f"Enable override is true for {config["name"]}, running despite mode/type mismatch.")
 
     log_print(PrintType.INFO, f"Updating {mode} {config["name"]}...")
 
@@ -215,43 +243,35 @@ for config in configs:
 
     # Get version
     try:
-        match config["version"].lower():
-            case "auto":
-                config_specified_version = version
-                log_print(PrintType.INFO, f"Using version {config_specified_version}.")
-            case "latest":
-                if inputVersion == "latest":
-                    config_specified_version = version
-                    log_print(PrintType.INFO, f"Using version {config_specified_version}.")
-                else:
-                    config_specified_version = latest_mc_version(False)
-                    if inputVersion == "latest_snapshot":
-                        log_print(PrintType.INFO_WARN, f"Script was run with latest_snapshot version, but config override is set to latest. Using version {config_specified_version}.")
-                    else:
-                        log_print(PrintType.INFO_WARN, f"Script was run with version {version}, but config override is set to latest.  Using version {config_specified_version}.")  
-            case "latest_snapshot":
-                if inputVersion == "latest_snapshot":
-                    config_specified_version = version
-                    log_print(PrintType.INFO, f"Using version {config_specified_version}.")
-                else:
-                    config_specified_version = latest_mc_version(True)
-                    if inputVersion == "latest":
-                        log_print(PrintType.INFO_WARN, f"Script was run with latest version, but config override is set to latest_snapshot. Using version {config_specified_version}.")
-                    else:
-                        log_print(PrintType.INFO_WARN, f"Script was run with version {version}, but config override is set to latest_snapshot.  Using version {config_specified_version}.")  
-                
-            case _:
-                config_specified_version = config["version"]
-                log_print(PrintType.INFO_WARN, f"Script was run with version {version}, but config override is set to {config_specified_version}.")
+        config_version = parse_version(config["version"])
+        if not config_version:
+            # This means there's something like "version": "" in the config; this should mean "no default",
+            # so raise a KeyError to make the try statement think there is no version field in the config.
+            raise KeyError()
+        if not input_version:
+            # Script was run with no version argument, so use config default
+            selected_version = config_version
+            # Just to make the log statements nicer
+            if config["version"] == "latest" or config["version"] == "latest_snapshot":
+                log_print(PrintType.INFO, f"No version specified.  Using config default {config["version"]} version {selected_version}.")
+            else:
+                log_print(PrintType.INFO, f"No version specified.  Using config default version {selected_version}.")
+        else:
+            selected_version = parsed_version
+            if input_version == "latest" or input_version == "latest_snapshot":
+                log_print(PrintType.INFO_WARN, f"Config version overridden.  Using {input_version} version {selected_version}")
+            else:
+                log_print(PrintType.INFO_WARN, f"Config version overridden.  Using version {selected_version}.")
+            
     except KeyError:
         # No version specified in config, so assume auto (whatever the script was given)
-        config_specified_version = version
-        log_print(PrintType.INFO, f"Using version {config_specified_version}.")
+        selected_version = parsed_version
+        log_print(PrintType.INFO, f"No default version specified by config.  Using version {selected_version}.")
 
     for mod in config["mods"]:
         match mod["site"]:
             case "modrinth":
-                iterator_version = config_specified_version
+                iterator_version = selected_version
                 enforce_release = True
                 while True:
                     try:
