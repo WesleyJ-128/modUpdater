@@ -18,7 +18,19 @@ class PrintType(Enum):
     ERROR = {"prefix": "ERROR: ", "color": "\033[91m"}
 
 def log_print(msg_type: PrintType, msg: str) -> None:
-    print(f"{msg_type.value["color"]}{msg_type.value["prefix"]}{msg}\033[0m")
+    global errors_count
+    global warnings_count
+    match msg_type:
+        case PrintType.INFO:
+            pass
+        case PrintType.INFO_WARN:
+            pass
+        case PrintType.WARNING:
+            warnings_count += 1
+        case PrintType.ERROR:
+            errors_count += 1
+    print_msg = f"{msg_type.value["color"]}{msg_type.value["prefix"]}{msg}\033[0m"
+    print(print_msg)
 
 def matches_hashes(filepath: str, sha1: str, sha512: str) -> bool:
     sha1alg = hashlib.sha1()
@@ -51,7 +63,6 @@ def english_list_join(stringList: list[str]) -> str:
         raise ValueError("List must not be empty")
 
 def latest_mc_version(snapshot = False) -> str:
-    global errors_count
     log_print(PrintType.INFO, f"Getting latest Minecraft version ({"including" * snapshot}{"excluding" * (not snapshot)} snapshots)...")
     version_manifest_response = requests.get("https://launchermeta.mojang.com/mc/game/version_manifest.json")
     try:
@@ -64,7 +75,6 @@ def latest_mc_version(snapshot = False) -> str:
         log_print(PrintType.INFO, f"Latest version is {version}.")
     except requests.HTTPError as e:
         log_print(PrintType.ERROR, f"{e.args[0]}. Could not retrieve Minecraft versions.")
-        errors_count += 1
         version = input("Please enter the desired version: ")
     finally:
         return version
@@ -93,8 +103,6 @@ def downstep_version(version: str) -> str:
 
 
 def download_modrinth_mod(id: str, display_name: str, version: str, loader: str, mods_folder_path: str, enforce_release = True) -> None:
-    global errors_count
-    global warnings_count
     # Get api data
     api_url = f"https://api.modrinth.com/v2/project/{id}/version"
     api_response = requests.get(api_url)
@@ -150,7 +158,6 @@ def download_modrinth_mod(id: str, display_name: str, version: str, loader: str,
         # Make sure there isn't a non-mod file of the same name
         if os.path.isfile(file_path):
             log_print(PrintType.WARNING, f"A file with the same name as the desired mod already exists. Removing {primary_file["filename"]}.")
-            warnings_count += 1
             oldversions.remove(primary_file["filename"])
             os.remove(file_path)
         # Download file
@@ -251,7 +258,6 @@ for config in configs:
                         break
                     except ValueError as e:
                         log_print(PrintType.WARNING, str(e.args[0]))
-                        warnings_count += 1
 
                         if enforce_release:
                             log_print(PrintType.INFO, "Checking alpha/beta/prereleases...")
@@ -264,21 +270,17 @@ for config in configs:
                                 log_print(PrintType.INFO, f"Checking for {mod["displayName"]} versions compatible with Minecraft {iterator_version}...")
                             except ValueError as e:
                                 log_print(PrintType.ERROR, f"Could not find {mod["displayName"]} for {e.args[1]}")
-                                errors_count += 1
                                 break
 
                     except (requests.HTTPError, DownloadError) as e:
                         log_print(PrintType.ERROR, f"{e.args[0]}.  Could not download {mod["displayName"]}.")
-                        errors_count += 1
                         break
 
                     except OSError as e:
                         log_print(PrintType.WARNING, f"{e.args[0]}.  Removing old versions of {mod["displayName"]} failed.  Inspecting the mods folder is recommended.")
-                        warnings_count += 1
                         break
             case _:
                 log_print(PrintType.ERROR, f"{mod["site"].title()} is not currently supported.  Skipping {mod["displayName"]}")
-                errors_count += 1
                 continue
     
 if (warnings_count + errors_count):
