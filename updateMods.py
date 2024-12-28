@@ -4,6 +4,7 @@ import os
 import json
 import hashlib
 from enum import Enum
+from datetime import datetime
 import urllib.parse
 import copy
 import re
@@ -30,11 +31,10 @@ def log_print(msg_type: PrintType, msg: str) -> None:
         case PrintType.ERROR:
             errors_count += 1
     if msg_type.value["level"] + print_verbosity >= (levels := len(set([x.value["level"] for x in PrintType]))):
-        print_msg = f"{msg_type.value["color"]}{msg_type.value["prefix"]}{msg}\033[0m"
-        print(print_msg)
-    if msg_type.value["level"] + log_verbosity >= levels:
-        # log message to file
-        pass
+        print(f"{msg_type.value["color"]}{msg_type.value["prefix"]}{msg}\033[0m")
+    if logfile != "None" and msg_type.value["level"] + log_verbosity >= levels:
+        with open(logfile, "a") as log:
+            log.write(f"[{datetime.now()}] {msg_type.value["prefix"]}{msg}\n")
 
 def matches_hashes(filepath: str, sha1: str, sha512: str) -> bool:
     sha1alg = hashlib.sha1()
@@ -234,7 +234,7 @@ parser.add_argument("-v", "--print-verbosity", type = int, choices = range(5), d
 parser.epilog = "Verbosity levels:\n\t0: Silent\n\t1: ERROR messages only\n\t2: ERRORs and WARNINGs\n\t3: ERRORs, WARNINGs, and INFO_WARNs\n\t4: All messages (including INFO)"
 
 # Parse arguments (replace with sys.argv)
-parsed_args = vars(parser.parse_args("config.json client -m1.21.4 -lNone".split()))
+parsed_args = vars(parser.parse_args("config.json client -m1.21.4".split()))
 
 input_version = parsed_args["mcversion"]
 mode = parsed_args["mode"]
