@@ -281,13 +281,7 @@ else:
 
 
 
-#version = input("Version Number: ")
-#strDeepSearch = input("Poll older releases if mods are not found in first page of API results? [y/n]: ").lower()
-#deepSearch = (strDeepSearch == "y")
-#
-#print("Updating to Minecraft Version " + version)
-#
-#print("Updating Fabric Loader...")
+
 #fabricInstallerAPIinfo = requests.get("https://maven.fabricmc.net/net/fabricmc/fabric-installer/maven-metadata.xml").text
 #fabricInstallerVersion = [x.strip().strip("</latest>") for x in fabricInstallerAPIinfo.split("\n") if "latest" in x][0]
 #fabricInstaller = requests.get("https://maven.fabricmc.net/net/fabricmc/fabric-installer/{0}/fabric-installer-{0}.jar".format(fabricInstallerVersion))
