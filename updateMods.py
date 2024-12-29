@@ -312,7 +312,33 @@ for config in configs:
     if install_loader:
         match config["loader"].lower():
             case "fabric":
-                pass
+                log_print(PrintType.INFO, f"Installing Fabric loader for version {selected_version}...")
+                log_print(PrintType.INFO, f"Getting Fabric installer...")
+                try:
+                    # Determine the latest installer version
+                    fabric_api_response = requests.get("https://maven.fabricmc.net/net/fabricmc/fabric-installer/maven-metadata.xml")
+                    fabric_api_response.raise_for_status()
+                    installer_version = [x.strip().strip("</latest>") for x in fabric_api_response.split("\n") if "latest" in x][0]
+                    # Download the installer jar
+                    fabric_installer_response = requests.get(f"https://maven.fabricmc.net/net/fabricmc/fabric-installer/{installer_version}/fabric-installer-{installer_version}.jar")
+                    fabric_installer_response.raise_for_status()
+                    fabric_installer_path = os.path.join(config["directory"], config["fabric_installer_name"])
+                    with open(fabric_installer_path, "wb") as file:
+                        file.write(fabric_installer_response.content)
+                    # Run the installer
+                    os.system(f"java -jar {fabric_installer_path} {mode} -mcversion {selected_version} -snapshot -dir {config["directory"]}")
+                    # Remove the installer
+                    os.remove(fabric_installer_path)
+
+                    # Get the minecraft server jar if running in server mode
+                    version_manifest_response = requests.get("https://launchermeta.mojang.com/mc/game/version_manifest.json")
+                    version_manifest_response.raise_for_status()
+                    version_json_url = [x for x in json.loads(version_manifest_response.text)["versions"] if x["id"] == selected_version][0]
+                    version_json_response = requests.get(version_json_url)
+                    version_json_response.raise_for_status()
+                    
+                except requests.HTTPError as e:
+                    log_print(PrintType.ERROR, e.args[0])
             case _:
                 log_print(PrintType.ERROR, f"Installing modloader {config["loader"]} is not currently supported.")
 
