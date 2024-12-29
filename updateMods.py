@@ -308,6 +308,16 @@ for config in configs:
 
 
 
+    # Install modloader
+    if install_loader:
+        match config["loader"].lower():
+            case "fabric":
+                pass
+            case _:
+                log_print(PrintType.ERROR, f"Installing modloader {config["loader"]} is not currently supported.")
+
+
+
     # Install mods
     for mod in config["mods"]:
         match mod["site"]:
@@ -324,7 +334,7 @@ for config in configs:
                 enforce_release = True
                 while True:
                     try:
-                        download_modrinth_mod(mod["id"], mod["displayName"], iterator_version, config["loader"], mods_folder, enforce_release)
+                        download_modrinth_mod(mod["id"], mod["displayName"], iterator_version, config["loader"].lower(), mods_folder, enforce_release)
                         break
                     except ValueError as e:
                         # download_modrinth_mod raises a ValueError if the given mod/version combination cannot be found
