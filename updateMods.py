@@ -36,24 +36,28 @@ def log_print(msg_type: PrintType, msg: str) -> None:
         with open(logfile, "a") as log:
             log.write(f"[{datetime.now()}] {msg_type.value["prefix"]}{msg}\n")
 
-def matches_hashes(filepath: str, sha1: str, sha512: str) -> bool:
+def matches_hashes(filepath: str, sha1: str = None, sha512: str = None, size: int = None) -> bool:
+    if not (sha1 or sha512 or size):
+        # No identifying information has been given
+        raise ValueError("No file identifiers provided")
+    
+    # Check that file size matches, if provided
+    if size and os.path.getsize(filepath) != size:
+        return False
+    # Size matches (or was unknown), so check hashes
     sha1alg = hashlib.sha1()
     sha512alg = hashlib.sha512()
 
     with open(filepath, "rb") as file:
-        while True:
-            data = file.read(BUFFER_SIZE)
-            # True when EOF reached
-            if not data:
-                break
+        while data := file.read(BUFFER_SIZE):
             sha1alg.update(data)
             sha512alg.update(data)
     # Calculate and check simpler hash first
-    if not sha1 == sha1alg.hexdigest():
+    if sha1 and (sha1 != sha1alg.hexdigest()):
         return False
-    if sha512 == sha512alg.hexdigest():
-        return True
-    return False
+    if sha512:
+        return (sha512 == sha512alg.hexdigest())
+    return True
 
 def english_list_join(stringList: list[str]) -> str:
     length = len(stringList)
@@ -180,7 +184,7 @@ def download_modrinth_mod(id: str, display_name: str, version: str, loader: str,
     
     # Check if we already have the desired file
     # Utilizing short-circuit logic to only calculate hashes if the filename exists
-    if os.path.isfile(file_path) and matches_hashes(file_path, primary_file["hashes"]["sha1"], primary_file["hashes"]["sha512"]):
+    if os.path.isfile(file_path) and matches_hashes(file_path, primary_file["hashes"]["sha1"], primary_file["hashes"]["sha512"], primary_file["size"]):
         log_print(PrintType.INFO, f"The latest version of {display_name} compatible with {version} is already present.  Skipping download.")
     else:
         # Make sure there isn't a non-mod file of the same name
@@ -196,7 +200,7 @@ def download_modrinth_mod(id: str, display_name: str, version: str, loader: str,
             file.write(file_response.content)
 
         # Check that the download was successful (i. e. we got the file we wanted)
-        if matches_hashes(file_path, primary_file["hashes"]["sha1"], primary_file["hashes"]["sha512"]):
+        if matches_hashes(file_path, primary_file["hashes"]["sha1"], primary_file["hashes"]["sha512"], primary_file["size"]):
             log_print(PrintType.INFO, "Download complete.")
             # Remove old versions of this mod
             if oldversions:
@@ -234,7 +238,7 @@ parser.add_argument("-v", "--print-verbosity", type = int, choices = range(5), d
 parser.epilog = "Verbosity levels:\n\t0: Silent\n\t1: ERROR messages only\n\t2: ERRORs and WARNINGs\n\t3: ERRORs, WARNINGs, and INFO_WARNs\n\t4: All messages (including INFO)"
 
 # Parse arguments (replace with sys.argv)
-parsed_args = vars(parser.parse_args("config.json client -m1.21.4".split()))
+parsed_args = vars(parser.parse_args("config.json server".split()))
 
 input_version = parsed_args["mcversion"]
 mode = parsed_args["mode"]
@@ -276,6 +280,10 @@ for config in configs:
 
     # Get mods folder path
     mods_folder = os.path.join(config["directory"], config["mods_folder"])
+    # Check that mods folder exists and create if not
+    if not os.path.isdir(mods_folder):
+        log_print(PrintType.INFO_WARN, f"No mods folder detected.  Creating {mods_folder}")
+        os.mkdir(mods_folder)
 
 
 
@@ -318,25 +326,52 @@ for config in configs:
                     # Determine the latest installer version
                     fabric_api_response = requests.get("https://maven.fabricmc.net/net/fabricmc/fabric-installer/maven-metadata.xml")
                     fabric_api_response.raise_for_status()
-                    installer_version = [x.strip().strip("</latest>") for x in fabric_api_response.split("\n") if "latest" in x][0]
+                    installer_version = [x.strip().strip("</latest>") for x in fabric_api_response.text.split("\n") if "latest" in x][0]
                     # Download the installer jar
                     fabric_installer_response = requests.get(f"https://maven.fabricmc.net/net/fabricmc/fabric-installer/{installer_version}/fabric-installer-{installer_version}.jar")
                     fabric_installer_response.raise_for_status()
                     fabric_installer_path = os.path.join(config["directory"], config["fabric_installer_name"])
                     with open(fabric_installer_path, "wb") as file:
                         file.write(fabric_installer_response.content)
+                    log_print(PrintType.INFO, f"Successfully downloaded latest Fabric installer as {config["fabric_installer_name"]}; running installer...")
                     # Run the installer
                     os.system(f"java -jar {fabric_installer_path} {mode} -mcversion {selected_version} -snapshot -dir {config["directory"]}")
                     # Remove the installer
+                    log_print(PrintType.INFO, f"Removing {config["fabric_installer_name"]}...")
                     os.remove(fabric_installer_path)
+                    log_print(PrintType.INFO, f"{config["fabric_installer_name"]} removed successfully.")
 
                     # Get the minecraft server jar if running in server mode
-                    version_manifest_response = requests.get("https://launchermeta.mojang.com/mc/game/version_manifest.json")
-                    version_manifest_response.raise_for_status()
-                    version_json_url = [x for x in json.loads(version_manifest_response.text)["versions"] if x["id"] == selected_version][0]
-                    version_json_response = requests.get(version_json_url)
-                    version_json_response.raise_for_status()
-                    
+                    if mode == "server":
+                        log_print(PrintType.INFO, "Getting server jar information...")
+                        version_manifest_response = requests.get("https://launchermeta.mojang.com/mc/game/version_manifest.json")
+                        version_manifest_response.raise_for_status()
+                        version_json_url = [x for x in json.loads(version_manifest_response.text)["versions"] if x["id"] == selected_version][0]["url"]
+                        version_json_response = requests.get(version_json_url)
+                        version_json_response.raise_for_status()
+                        server_json = json.loads(version_json_response.text)["downloads"]["server"]
+                        server_jar_filename = f"minecraft_server.{selected_version}.jar"
+                        server_jar_path = os.path.join(config["directory"], server_jar_filename)
+                        log_print(PrintType.INFO, f"Checking directory for existing {server_jar_filename}...")
+                        if os.path.isfile(server_jar_path) and matches_hashes(server_jar_path, server_json["sha1"], size = server_json["size"]):
+                            log_print(PrintType.INFO, "Found matching server jar, skipping download.")
+                        else:
+                            log_print(PrintType.INFO, "No matching server jar found.  Downloading server jar...")
+                            server_jar_response = requests.get(server_json["url"])
+                            server_jar_response.raise_for_status()
+                            with open(server_jar_path, "wb") as file:
+                                file.write(server_jar_response.content)
+                            if not matches_hashes(server_jar_path, server_json["sha1"], size = server_json["size"]):
+                                raise DownloadError("Failed to download server jar")
+                            log_print(PrintType.INFO, f"Successfully downloaded server jar as {server_jar_filename}.")
+                        
+                        # Update fabric-server-launcher.properties
+                        log_print(PrintType.INFO, "Updating fabric-server-launcher.properties.")
+                        with open(os.path.join(config["directory"], "fabric-server-launcher.properties"), "w") as file:
+                            file.write(f"# {datetime.now().strftime("%a %d %b %Y %H:%M:%S")}\n")
+                            file.write(f"serverJar={server_jar_filename}\n")
+                            
+
                 except requests.HTTPError as e:
                     log_print(PrintType.ERROR, e.args[0])
             case _:
