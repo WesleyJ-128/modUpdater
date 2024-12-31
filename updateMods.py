@@ -271,7 +271,7 @@ for config in configs:
     if enable_mode == "auto" and config["type"] != mode:
         log_print(PrintType.INFO, f"Script is in {mode} mode, skipping {config["type"]} config {config["name"]}.")
         continue
-    if enable_mode == "true":
+    if enable_mode == "true" and config["type"] != mode:
         log_print(PrintType.INFO_WARN, f"Enable override is true for {config["name"]}, running despite mode/type mismatch.")
 
     
@@ -335,14 +335,14 @@ for config in configs:
                         file.write(fabric_installer_response.content)
                     log_print(PrintType.INFO, f"Successfully downloaded latest Fabric installer as {config["fabric_installer_name"]}; running installer...")
                     # Run the installer
-                    os.system(f"java -jar {fabric_installer_path} {mode} -mcversion {selected_version} -snapshot -dir {config["directory"]}")
+                    os.system(f"java -jar {fabric_installer_path} {config["type"]} -mcversion {selected_version} -snapshot -dir {config["directory"]}")
                     # Remove the installer
                     log_print(PrintType.INFO, f"Removing {config["fabric_installer_name"]}...")
                     os.remove(fabric_installer_path)
                     log_print(PrintType.INFO, f"{config["fabric_installer_name"]} removed successfully.")
 
-                    # Get the minecraft server jar if running in server mode
-                    if mode == "server":
+                    # Get the minecraft server jar if this is a server config
+                    if config["type"] == "server":
                         log_print(PrintType.INFO, "Getting server jar information...")
                         version_manifest_response = requests.get("https://launchermeta.mojang.com/mc/game/version_manifest.json")
                         version_manifest_response.raise_for_status()
