@@ -132,6 +132,58 @@ def parse_version(version: str) -> str:
         case _:
             return version
 
+def download_server_jar(version: str, directory: str, name: str, namepattern = "minecraft_server\\..*\\.jar") -> str:
+    """
+    Downloads the minecraft server jar for the specified version and places it in the given directory.
+    Returns the filename of the downloaded jar.
+    """
+    # Get the version maifest with urls to version-specific json
+    log_print(PrintType.INFO, "Getting server jar information...")
+    version_manifest_response = requests.get("https://launchermeta.mojang.com/mc/game/version_manifest.json")
+    version_manifest_response.raise_for_status()
+    
+    # Extract the url
+    version_json_url = [x for x in json.loads(version_manifest_response.text)["versions"] if x["id"] == version][0]["url"]
+    
+    # Get the version-specific json
+    version_json_response = requests.get(version_json_url)
+    version_json_response.raise_for_status()
+    server_json = json.loads(version_json_response.text)["downloads"]["server"]
+    server_jar_path = os.path.join(directory, name)
+
+    # Check if the jar is already present
+    log_print(PrintType.INFO, f"Checking directory for existing {name}...")
+    if os.path.isfile(server_jar_path) and matches_hashes(server_jar_path, server_json["sha1"], size = server_json["size"]):
+        log_print(PrintType.INFO, "Found matching server jar, skipping download.")
+    else:
+        # Filename exists, but is not jar
+        if os.path.isfile(server_jar_path):
+            log_print(PrintType.WARNING, f"{name} already exists, but is not a valid server jar and will be overwritten.")
+        
+        # Jar is not present; download
+        log_print(PrintType.INFO, "No matching server jar found.  Downloading server jar...")
+        server_jar_response = requests.get(server_json["url"])
+        server_jar_response.raise_for_status()
+        with open(server_jar_path, "wb") as file:
+            file.write(server_jar_response.content)
+
+        # Check that the download succeded
+        if not matches_hashes(server_jar_path, server_json["sha1"], size = server_json["size"]):
+            # Remove incorrectly downloaded file
+            os.remove(server_jar_path)
+            raise DownloadError("Failed to download server jar")
+        
+        # Download was successful
+        log_print(PrintType.INFO, f"Successfully downloaded server jar as {name}.")
+
+    # Remove old server jars
+    old_jars = [x for x in os.listdir(directory) if x != name and re.match(namepattern)]
+    if old_jars:
+        log_print(PrintType.INFO, f"Removing old server jar{"s" * bool(len(old_jars) - 1)} {english_list_join(old_jars)}.")
+        for old_jar in old_jars:
+            os.remove(os.path.join(directory, old_jar))
+    
+    return server_jar_filename
 
 
 def download_modrinth_mod(id: str, display_name: str, version: str, loader: str, mods_folder_path: str, enforce_release = True) -> None:
@@ -189,9 +241,8 @@ def download_modrinth_mod(id: str, display_name: str, version: str, loader: str,
     else:
         # Make sure there isn't a non-mod file of the same name
         if os.path.isfile(file_path):
-            log_print(PrintType.WARNING, f"A file with the same name as the desired mod already exists. Removing {primary_file["filename"]}.")
+            log_print(PrintType.WARNING, f"{primary_file["filename"]} already exists, but is not a valid mod and will be overwritten.")
             oldversions.remove(primary_file["filename"])
-            os.remove(file_path)
         # Download file
         with open(file_path, "wb") as file:
             log_print(PrintType.INFO, f"Downloading {primary_file["filename"]} for {version} from Modrinth...")
@@ -202,15 +253,16 @@ def download_modrinth_mod(id: str, display_name: str, version: str, loader: str,
         # Check that the download was successful (i. e. we got the file we wanted)
         if matches_hashes(file_path, primary_file["hashes"]["sha1"], primary_file["hashes"]["sha512"], primary_file["size"]):
             log_print(PrintType.INFO, "Download complete.")
-            # Remove old versions of this mod
-            if oldversions:
-                log_print(PrintType.INFO, f"Removing old version{"s" * bool(len(oldversions) - 1)} of {display_name}: {english_list_join(oldversions)}.")
-                for file in oldversions:
-                    os.remove(os.path.join(mods_folder_path, file))
         else:
             # Remove partially/incorrectly downloaded file
             os.remove(file_path)
             raise DownloadError("Download failed.")
+    
+    # Remove old versions of this mod - at this point we know we have a good copy
+    if oldversions:
+        log_print(PrintType.INFO, f"Removing old version{"s" * bool(len(oldversions) - 1)} of {display_name}: {english_list_join(oldversions)}.")
+        for file in oldversions:
+            os.remove(os.path.join(mods_folder_path, file))
 
 
 
@@ -276,7 +328,7 @@ for config in configs:
 
     
     
-    log_print(PrintType.INFO, f"Updating {mode} {config["name"]}...")
+    log_print(PrintType.INFO, f"Updating {config["type"]} {config["name"]}...")
 
     # Get mods folder path
     mods_folder = os.path.join(config["directory"], config["mods_folder"])
@@ -317,7 +369,7 @@ for config in configs:
 
 
     # Install modloader
-    if install_loader:
+    if install_loader and config["install_loader"]:
         match config["loader"].lower():
             case "fabric":
                 log_print(PrintType.INFO, f"Installing Fabric loader for version {selected_version}...")
@@ -343,27 +395,7 @@ for config in configs:
 
                     # Get the minecraft server jar if this is a server config
                     if config["type"] == "server":
-                        log_print(PrintType.INFO, "Getting server jar information...")
-                        version_manifest_response = requests.get("https://launchermeta.mojang.com/mc/game/version_manifest.json")
-                        version_manifest_response.raise_for_status()
-                        version_json_url = [x for x in json.loads(version_manifest_response.text)["versions"] if x["id"] == selected_version][0]["url"]
-                        version_json_response = requests.get(version_json_url)
-                        version_json_response.raise_for_status()
-                        server_json = json.loads(version_json_response.text)["downloads"]["server"]
-                        server_jar_filename = f"minecraft_server.{selected_version}.jar"
-                        server_jar_path = os.path.join(config["directory"], server_jar_filename)
-                        log_print(PrintType.INFO, f"Checking directory for existing {server_jar_filename}...")
-                        if os.path.isfile(server_jar_path) and matches_hashes(server_jar_path, server_json["sha1"], size = server_json["size"]):
-                            log_print(PrintType.INFO, "Found matching server jar, skipping download.")
-                        else:
-                            log_print(PrintType.INFO, "No matching server jar found.  Downloading server jar...")
-                            server_jar_response = requests.get(server_json["url"])
-                            server_jar_response.raise_for_status()
-                            with open(server_jar_path, "wb") as file:
-                                file.write(server_jar_response.content)
-                            if not matches_hashes(server_jar_path, server_json["sha1"], size = server_json["size"]):
-                                raise DownloadError("Failed to download server jar")
-                            log_print(PrintType.INFO, f"Successfully downloaded server jar as {server_jar_filename}.")
+                        server_jar_filename = download_server_jar(selected_version, config["directory"])
                         
                         # Update fabric-server-launcher.properties
                         log_print(PrintType.INFO, "Updating fabric-server-launcher.properties.")
