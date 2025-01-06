@@ -132,7 +132,7 @@ def parse_version(version: str) -> str:
         case _:
             return version
 
-def download_server_jar(version: str, directory: str, name: str, namepattern = "minecraft_server\\..*\\.jar") -> str:
+def download_server_jar(version: str, directory: str, name: str, namepattern: str = "minecraft_server\\..*\\.jar") -> str:
     """
     Downloads the minecraft server jar for the specified version and places it in the given directory.
     Returns the filename of the downloaded jar.
@@ -177,13 +177,11 @@ def download_server_jar(version: str, directory: str, name: str, namepattern = "
         log_print(PrintType.INFO, f"Successfully downloaded server jar as {name}.")
 
     # Remove old server jars
-    old_jars = [x for x in os.listdir(directory) if x != name and re.match(namepattern)]
+    old_jars = [x for x in os.listdir(directory) if x != name and re.match(namepattern, x)]
     if old_jars:
         log_print(PrintType.INFO, f"Removing old server jar{"s" * bool(len(old_jars) - 1)} {english_list_join(old_jars)}.")
         for old_jar in old_jars:
             os.remove(os.path.join(directory, old_jar))
-    
-    return server_jar_filename
 
 
 def download_modrinth_mod(id: str, display_name: str, version: str, loader: str, mods_folder_path: str, enforce_release = True) -> None:
@@ -238,6 +236,7 @@ def download_modrinth_mod(id: str, display_name: str, version: str, loader: str,
     # Utilizing short-circuit logic to only calculate hashes if the filename exists
     if os.path.isfile(file_path) and matches_hashes(file_path, primary_file["hashes"]["sha1"], primary_file["hashes"]["sha512"], primary_file["size"]):
         log_print(PrintType.INFO, f"The latest version of {display_name} compatible with {version} is already present.  Skipping download.")
+        oldversions.remove(primary_file["filename"])
     else:
         # Make sure there isn't a non-mod file of the same name
         if os.path.isfile(file_path):
@@ -395,7 +394,8 @@ for config in configs:
 
                     # Get the minecraft server jar if this is a server config
                     if config["type"] == "server":
-                        server_jar_filename = download_server_jar(selected_version, config["directory"])
+                        server_jar_filename = f"minecraft_server.{selected_version}.jar"
+                        download_server_jar(selected_version, config["directory"], server_jar_filename)
                         
                         # Update fabric-server-launcher.properties
                         log_print(PrintType.INFO, "Updating fabric-server-launcher.properties.")
