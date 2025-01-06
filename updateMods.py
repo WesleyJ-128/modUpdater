@@ -404,7 +404,7 @@ for config in configs:
                             file.write(f"serverJar={server_jar_filename}\n")
                             
 
-                except requests.HTTPError as e:
+                except (requests.HTTPError, OSError, DownloadError) as e:
                     log_print(PrintType.ERROR, e.args[0])
             case _:
                 log_print(PrintType.ERROR, f"Installing modloader {config["loader"]} is not currently supported.")
