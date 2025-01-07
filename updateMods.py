@@ -5,8 +5,6 @@ import json
 import hashlib
 from enum import Enum
 from datetime import datetime
-import urllib.parse
-import copy
 import re
 
 class DownloadError(BaseException):
