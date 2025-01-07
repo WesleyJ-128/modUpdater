@@ -262,7 +262,16 @@ def download_modrinth_mod(id: str, display_name: str, version: str, loader: str,
         log_print(PrintType.INFO, f"Removing old version{"s" * bool(len(oldversions) - 1)} of {display_name}: {english_list_join(oldversions)}.")
         for file in oldversions:
             os.remove(os.path.join(mods_folder_path, file))
+    
+def download_github_mod(id: str, author: str, display_name: str, version: str, mods_folder_path: str) -> None:
+    # Get api data
+    api_url = f"api.github.com/repos/{author}/{id}/releases"
+    api_response = requests.get(api_url)
+    # Ensure api response was successful
+    api_response.raise_for_status()
+    mod_json = json.loads(api_response.text)
 
+    
 
 
 # Arbitrary buffer size for reading files into hash function
