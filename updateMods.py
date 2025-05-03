@@ -1,4 +1,5 @@
 import argparse
+import sys
 import requests
 import os
 import json
@@ -287,7 +288,7 @@ parser.add_argument("-v", "--print-verbosity", type = int, choices = range(5), d
 parser.epilog = "Verbosity levels:\n\t0: Silent\n\t1: ERROR messages only\n\t2: ERRORs and WARNINGs\n\t3: ERRORs, WARNINGs, and INFO_WARNs\n\t4: All messages (including INFO)"
 
 # Parse arguments (replace with sys.argv)
-parsed_args = vars(parser.parse_args("config.json server".split()))
+parsed_args = vars(parser.parse_args(sys.argv))
 
 input_version = parsed_args["mcversion"]
 mode = parsed_args["mode"]
