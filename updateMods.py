@@ -475,15 +475,3 @@ if (warnings_count + errors_count):
     log_print(PrintType.INFO, f"Script completed with {errors} and {warnings}.")
 else:
     log_print(PrintType.INFO, "Script completed with no errors or warnings.")
-
-
-
-
-#fabricInstallerAPIinfo = requests.get("https://maven.fabricmc.net/net/fabricmc/fabric-installer/maven-metadata.xml").text
-#fabricInstallerVersion = [x.strip().strip("</latest>") for x in fabricInstallerAPIinfo.split("\n") if "latest" in x][0]
-#fabricInstaller = requests.get("https://maven.fabricmc.net/net/fabricmc/fabric-installer/{0}/fabric-installer-{0}.jar".format(fabricInstallerVersion))
-#with open(fabric_installer_name, 'wb') as file:
-#    file.write(fabricInstaller.content)
-#os.system("java -jar {0} client -mcversion {1}".format(fabric_installer_name, version))
-#os.remove(fabric_installer_name)
-            
