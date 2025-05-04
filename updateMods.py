@@ -289,8 +289,8 @@ parser.add_argument("-V", "--log-verbosity", type = int, choices = range(5), def
 parser.add_argument("-v", "--print-verbosity", type = int, choices = range(5), default = 4, help = "Sets the stdout verbosity level.  Default is 4.")
 parser.epilog = "Verbosity levels:\n\t0: Silent\n\t1: ERROR messages only\n\t2: ERRORs and WARNINGs\n\t3: ERRORs, WARNINGs, and INFO_WARNs\n\t4: All messages (including INFO)"
 
-# Parse arguments (replace with sys.argv)
-parsed_args = vars(parser.parse_args(sys.argv))
+# Parse arguments
+parsed_args = vars(parser.parse_args(sys.argv[1:]))
 
 input_version = parsed_args["mcversion"]
 mode = parsed_args["mode"]
