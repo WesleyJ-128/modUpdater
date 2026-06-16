@@ -425,7 +425,10 @@ for config in configs:
                 #   4: Downstep version, alphas/betas/prereleases, if there are any
                 #   5: Repeat 3 and 4 until: we find a mod version, or the base version (e.g. 1.19) fails.
                 iterator_version = selected_version
-                enforce_release = True
+                try:
+                    enforce_release = mod["prefer_release"]
+                except KeyError:
+                    enforce_release = True
                 while True:
                     try:
                         download_modrinth_mod(mod["id"], mod["displayName"], iterator_version, config["loader"].lower(), mods_folder, enforce_release)
